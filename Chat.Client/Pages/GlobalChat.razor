@@ -1,0 +1,77 @@
+﻿@page "/globalChat"
+@using Chat.Interfaces
+@using Chat.Client.ViewModels
+@inject GlobalChatViewModel vm
+@inject IJSRuntime jsr
+
+@if (vm.ChatMessages == null || newMessage == null)
+{
+    <span>Loading...</span>
+}
+else
+{
+    <div class="chatmessage-messages" id="allMessages">
+        @foreach (var msg in vm.ChatMessages)
+        {
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="chatmessage @(msg.SenderId.Equals(this.senderId) ? "chatmessage-me" : "chatmessage-other")" data-messageid="@msg.Id">
+                        <div class="chatmessage-title">@msg.Sender</div>
+                        <div class="chatmessage-content">@msg.Message</div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="chatmessage-new">
+        <div class="row">
+            <div class="col-lg-11">
+                <input class="chatmessage-title chatmessage-input" type="text" name="Sender" placeholder="Your name..." @bind="newMessage.Sender" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-11">
+                <textarea class="chatmessage-content chatmessage-input" @bind="newMessage.Message" placeholder="Message..."></textarea>
+
+            </div>
+            <div class="col-lg-1">
+                <button class="chatmessage-submit btn btn-primary" @onclick="addMessage">></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private Guid senderId;
+    private Chat.Client.Models.ChatMessageModel newMessage { get; set; }
+
+    private async Task addMessage()
+    {
+        if (string.IsNullOrWhiteSpace(newMessage.Message))
+        {
+            return;
+        }
+
+        await vm.AddChatMessage(newMessage);
+
+        newMessage.Message = null;
+    }
+}
+
+@functions{
+    protected override async Task OnInitializedAsync()
+    {
+        senderId = Guid.NewGuid();
+        newMessage = new Models.ChatMessageModel(senderId);
+
+        await vm.RetrieveChatMessagesAsync();
+        vm.OnMessageReceived += (object sender, EventArgs e) =>
+        {
+            this.InvokeAsync(this.StateHasChanged);
+            jsr.InvokeVoidAsync("scrollToBottom", "#allMessages"); // Javascript interop. 
+        };
+
+        jsr.InvokeVoidAsync("scrollToBottom", "#allMessages");
+    }
+}
